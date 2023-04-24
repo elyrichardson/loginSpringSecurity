@@ -37,21 +37,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         jwt = authHeader.substring(7);
-        userEmail = jwtService.extractUsername(jwt);
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null){
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
-            if (jwtService.isTokenValid(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                );
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+        try {
+            userEmail = jwtService.extractUsername(jwt);
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+                if (jwtService.isTokenValid(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
-        };
-        filterChain.doFilter(request, response);
+            filterChain.doFilter(request, response);
+        }catch (Exception e) {
+            if (e.getMessage().startsWith("JWT expired at ")) {
+                response.getWriter().write("Usuario expirado");
+                response.setHeader("USUARIO_EXP", "Usuario expirado");
+                response.setStatus(401);
+            } else if (e.getMessage().startsWith("JWT strings must ")) {
+                response.getWriter().write("duplicidade de usuario");
+                response.setStatus(402);
+            } else {
+                response.getWriter().write("Usuario expirado");
+                response.setStatus(404);
+            }
+            System.out.println(e);
+        }
     }
 }
